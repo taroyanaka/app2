@@ -1,0 +1,212 @@
+以下のコードを参考にWeb APIを実装。テーブル名は****。カラムの*は削除。カラムの*は*に変更。*カラムのバリデーションは*文字以上*文字以下。全てのWeb APIのエンドポイントは*/createの*/deleteのように*で始まる。全てPOST。createとupdateとdeleteはuid必須。readはuidでwhereされたresとuidでwhereされていない全ての実行結果の両方のresをjsonで返す。
+以下のWeb APIをfetchする関数をvue3で実装。Web API全てを実行する。UIを備える。
+
+
+
+
+
+
+
+以下のコードを参考にWeb APIを実装。テーブル名は****。カラムの*は削除。カラムの*は*に変更。*カラムのバリデーションは*文字以上*文字以下。全てのWeb APIのエンドポイントは*/createの*/deleteのように*で始まる。全てPOST。createとupdateとdeleteはuid必須。readはuidでwhereされたresとuidでwhereされていない全ての実行結果の両方のresをjsonで返す。 
+
+
+
+
+db:pop_up_url.db テーブル名:pop_up_url,lexisは削除。url_listを追加。url_nameを追加。url_nameのバリデーションは1文字以上20文字以下。url_listのバリデーションは1文字以上3000文字以下。uidのバリデーションは1文字以上3000文字以下。
+全てのWeb APIのエンドポイントはpop_up_url/createのpop_up_url/deleteのようにpop_up_urlで始まる。
+全てPOST。
+createとupdateとdeleteはuid必須。
+readはuidでwhereされたresとuidでwhereされていない全ての実行結果の両方のresをjsonで返す。(uid_jsonとall_json)
+
+fetchには
+'https://cotton-concrete-catsup.glitch.me'
+のエンドポイントを利用。
+
+以下のApp.svelteに後述のCRUDのcreate,read,update,deleteをfetchする関数とボタンを追加
+
+
+後述のCRUD
+
+
+
+autuのために以下を追加
+	const firebaseConfig = {
+		apiKey: "AIzaSyBcOlIDP2KWbJuKM0WeMHNp-WvjTVfLt9Y",
+		authDomain: "p2auth-ea50a.firebaseapp.com",
+		projectId: "p2auth-ea50a",
+		storageBucket: "p2auth-ea50a.appspot.com",
+		messagingSenderId: "796225429484",
+		appId: "1:796225429484:web:ece56ef2fc0be28cd6eac9"
+	};
+	firebase.initializeApp(firebaseConfig);
+
+
+以下のWeb APIをfetchする関数を以下のApp.svelteに追加で実装。Web API全てを実行する。UIを備える。
+以下のUIのコードにHTMLとCSSを付与。
+配置位置下記の通り。
+上部左にサービス名。
+上部右上にログイン/ログアウトボタン(ログイン状態で飲みログアウトボタン表示)。
+上部以下に2カラム。右カラムにクライアントのUIを配置。
+textarea1と実行ボタン1とdeleteボタン。
+カラムaにweb_data全てをリスト(それぞれのliタグがtextarea1への代入ボタンを付与)。mount時にreadをfetchする
+// Initialize SQLite database
+const db_for_pop_up_url = new sqlite('pop_up_url.db');
+
+// Function to initialize the database table
+const initializeDatabase_pop_up_url = () => {
+    db_for_pop_up_url.exec('DROP TABLE IF EXISTS pop_up_url');
+    db_for_pop_up_url.exec(`
+        CREATE TABLE pop_up_url (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uid TEXT NOT NULL CHECK(length(uid) >= 1 AND length(uid) <= 3000),
+            url_name TEXT NOT NULL CHECK(length(url_name) >= 1 AND length(url_name) <= 20),
+            url_list TEXT NOT NULL CHECK(length(url_list) >= 1 AND length(url_list) <= 3000),
+            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `);
+};
+initializeDatabase_pop_up_url();
+
+// Endpoint to initialize the database table
+app.post('/pop_up_url/init-database', (req, res) => {
+    const { password } = req.body;
+
+    if (password === 'init') {
+        try {
+            initializeDatabase_pop_up_url();
+            res.status(200).json({ message: 'Database initialized successfully.' });
+        } catch (error) {
+            res.status(500).json({ error: 'Failed to initialize database.' });
+        }
+    } else {
+        res.status(403).json({ error: 'Unauthorized: Invalid password.' });
+    }
+});
+
+// Endpoint to create a new record
+app.post('/pop_up_url/create', (req, res) => {
+    const { uid, url_name, url_list } = req.body;
+
+    // Validate input
+    if (typeof uid !== 'string' || uid.length < 1 || uid.length > 3000 ||
+        typeof url_name !== 'string' || url_name.length < 1 || url_name.length > 20 ||
+        typeof url_list !== 'string' || url_list.length < 1 || url_list.length > 3000) {
+        return res.status(400).json({ error: 'Invalid input.' });
+    }
+
+    // Insert new record
+    const stmt = db_for_pop_up_url.prepare('INSERT INTO pop_up_url (uid, url_name, url_list) VALUES (?, ?, ?)');
+    const result = stmt.run(uid, url_name, url_list);
+
+    return res.status(201).json({
+        id: result.lastInsertRowid,
+        uid,
+        url_name,
+        url_list,
+        created: new Date().toISOString(),
+        updated: new Date().toISOString()
+    });
+});
+
+// Endpoint to read records
+app.post('/pop_up_url/read', (req, res) => {
+    const { uid } = req.body;
+
+    try {
+        const stmt_all = db_for_pop_up_url.prepare('SELECT * FROM pop_up_url');
+        const all_json = stmt_all.all();
+
+        if (uid) {
+            const stmt_uid = db_for_pop_up_url.prepare('SELECT * FROM pop_up_url WHERE uid = ?');
+            const uid_json = stmt_uid.all(uid);
+            res.status(200).json({ uid_json, all_json });
+        } else {
+            res.status(200).json({ all_json });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to retrieve records.' });
+    }
+});
+
+// Endpoint to update a record
+app.post('/pop_up_url/update', (req, res) => {
+    const { id, uid, url_name, url_list } = req.body;
+
+    // Validate input
+    if (typeof id !== 'number' || typeof uid !== 'string' || uid.length < 1 || uid.length > 3000 ||
+        typeof url_name !== 'string' || url_name.length < 1 || url_name.length > 20 ||
+        typeof url_list !== 'string' || url_list.length < 1 || url_list.length > 3000) {
+        return res.status(400).json({ error: 'Invalid input.' });
+    }
+
+    // Update record
+    const stmt = db_for_pop_up_url.prepare('UPDATE pop_up_url SET url_name = ?, url_list = ?, updated = CURRENT_TIMESTAMP WHERE id = ? AND uid = ?');
+    const result = stmt.run(url_name, url_list, id, uid);
+
+    if (result.changes > 0) {
+        res.status(200).json({ message: 'Record updated successfully.' });
+    } else {
+        res.status(404).json({ error: 'Record not found or UID mismatch.' });
+    }
+});
+
+// Endpoint to delete a record
+app.post('/pop_up_url/delete', (req, res) => {
+    const { id, uid } = req.body;
+
+    // Validate input
+    if (typeof id !== 'number' || typeof uid !== 'string') {
+        return res.status(400).json({ error: 'Invalid input.' });
+    }
+
+    // Delete record
+    const stmt = db_for_pop_up_url.prepare('DELETE FROM pop_up_url WHERE id = ? AND uid = ?');
+    const result = stmt.run(id, uid);
+
+    if (result.changes > 0) {
+        res.status(200).json({ message: 'Record deleted successfully.' });
+    } else {
+        res.status(404).json({ error: 'Record not found or UID mismatch.' });
+    }
+});
+
+
+googleログインについては以下のコードを参照して実装
+// Firebase 初期化
+import { auth, provider, signInWithPopup, signOut } from './firebase';
+
+
+onMount(() => {
+  auth.onAuthStateChanged((currentUser) => {
+    user = currentUser;
+    // uidをセット
+    if (user) {
+      uid = user.uid;
+    }
+  });
+  // readをfetch
+
+
+});
+
+async function handleLogin() {
+  try {
+    const login = await signInWithPopup(auth, provider);
+    user = login.user;
+    // uid
+    uid = user.uid;
+  } catch (error) {
+    console.error("Error during sign-in:", error);
+  }
+}
+
+async function handleLogout() {
+  try {
+    await signOut(auth);
+    user = null;
+    uid = "";
+  } catch (error) {
+    console.error("Error during sign-out:", error);
+  }
+}

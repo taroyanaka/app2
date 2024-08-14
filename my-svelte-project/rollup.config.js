@@ -30,13 +30,17 @@ function serve() {
 }
 
 export default {
-	input: 'src/main.js',
-	output: {
-		sourcemap: true,
-		format: 'iife',
-		name: 'app',
-		file: 'public/build/bundle.js'
-	},
+    input: 'src/main.js',
+    output: {
+        sourcemap: true,
+        format: 'iife',
+        name: 'app',
+        file: 'public/build/bundle.js',
+        globals: {
+            'firebase/app': 'firebase',
+            'firebase/auth': 'firebase'
+        }
+    },
 	plugins: [
 		svelte({
 			compilerOptions: {
@@ -58,6 +62,10 @@ export default {
 			dedupe: ['svelte'],
 			exportConditions: ['svelte']
 		}),
+
+		// serve(),
+        // livereload('public'),
+
 		commonjs(),
 
 		// In dev mode, call `npm run start` once
@@ -71,6 +79,7 @@ export default {
 		// If we're building for production (npm run build
 		// instead of npm run dev), minify
 		production && terser()
+
 	],
 	watch: {
 		clearScreen: false
