@@ -235,8 +235,11 @@ https://www.facebook.com`;
                     <li>
                         {item.url_name}
                         <button on:click={() => url_list = item.url_list}>Load</button>
+						<!-- ログアウト状態ではupdateとdeleteは非表示 -->
+						{#if user}
                         <button on:click={() => update_record(item.id)}>Update</button>
                         <button on:click={() => delete_record(item.id)}>Delete</button>
+						{/if}
                     </li>
                 {/each}
             </ul>
@@ -270,7 +273,10 @@ https://www.facebook.com`;
             <input type="number" id="open_volume" bind:value={open_volume} min="1" max={options.length} />
             <textarea bind:value={url_list} placeholder="URLリストを入力してください"></textarea>
             <button on:click={exe}>実行</button>
+			<!-- ログアウト状態ではcreateは非表示 -->
+			{#if user}
             <button on:click={create_record}>Create Record</button>
+			{/if}
             <!-- uid表示 -->
             <p>uid: {uid}</p>
         </div>
