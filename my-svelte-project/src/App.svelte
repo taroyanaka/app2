@@ -1,8 +1,7 @@
 <script>
     import { onMount } from 'svelte';
-    import { writable } from 'svelte/store';
 
-    const firebaseConfig = {
+    const firebase_config = {
         apiKey: "AIzaSyBcOlIDP2KWbJuKM0WeMHNp-WvjTVfLt9Y",
         authDomain: "p2auth-ea50a.firebaseapp.com",
         projectId: "p2auth-ea50a",
@@ -10,10 +9,17 @@
         messagingSenderId: "796225429484",
         appId: "1:796225429484:web:ece56ef2fc0be28cd6eac9"
     };
-    firebase.initializeApp(firebaseConfig);
-    const googleProvider = new firebase.auth.GoogleAuthProvider();
+    firebase.initializeApp(firebase_config);
+    const google_provider = new firebase.auth.GoogleAuthProvider();
 
-    let list_name = 'GAFAM';
+    let url_name = 'GAFAM';
+
+const test_url_list = `https://www.google.com
+https://www.amazon.co.jp
+https://www.apple.com/jp
+https://www.microsoft.com/ja-jp
+https://www.facebook.com`;
+
     let url_list = `https://www.google.com
 https://www.amazon.com
 https://www.apple.com
@@ -25,13 +31,16 @@ https://www.facebook.com`;
     let options = [];
     let urls = [];
     let error_message = '';
-    let is_editing_list_name = false;
+    let is_editing_url_name = false;
     let user = null;
     let uid = "";
-    let loginResult = 'Not logged in';
-    let web_data = writable([]);
+    let login_result = 'Not logged in';
+    let web_data = [];
 
-    // リアクティブに url_list_lines と options を更新
+    let new_url_name = '';
+    let new_url_list = '';
+
+    // Reactive updates
     $: {
         url_list_lines = url_list.split('\n').filter(line => line.trim() !== '');
         if (url_list_lines.length > 100) {
@@ -46,57 +55,60 @@ https://www.facebook.com`;
         }
     }
 
-    function tabOpen(url) {
+    function tab_open(url) {
         window.open(url, '_blank');
     }
 
     async function exe() {
         urls = url_list_lines.slice(0, open_volume);
-        urls.forEach(url => tabOpen(url));
+        urls.forEach(url => tab_open(url));
     }
 
-    function toggleEditListName() {
-        is_editing_list_name = !is_editing_list_name;
+    function toggle_edit_url_name() {
+        is_editing_url_name = !is_editing_url_name;
     }
 
-    function updateListName() {
-        is_editing_list_name = false;
+    function update_url_name() {
+        is_editing_url_name = false;
     }
 
-    function checkLogin() {
-        firebase.auth().onAuthStateChanged(user => {
+    function check_login() {
+        firebase.auth().onAuthStateChanged(current_user => {
+            user = current_user;
             if (user) {
-                this.user = user;
-                this.loginResult = `Logged in as: ${user.displayName}`;
+                login_result = `Logged in as: ${user.displayName}`;
+                uid = user.uid;
+                fetch_data(); // Refresh the data
             } else {
-                this.user = null;
-                this.loginResult = 'Not logged in';
+                login_result = 'Not logged in';
+                uid = "";
             }
         });
     }
 
-    function googleLogin() {
-        firebase.auth().signInWithPopup(googleProvider).then(result => {
-            this.user = result.user;
-            this.loginResult = `Logged in as: ${this.user.displayName}`;
+    function google_login() {
+        firebase.auth().signInWithPopup(google_provider).then(result => {
+            user = result.user;
+            login_result = `Logged in as: ${user.displayName}`;
         }).catch(error => {
             console.error('Error during Google login:', error);
             alert('Google login failed. ' + error.message);
         });
     }
 
-    function signOut() {
+    function sign_out() {
         firebase.auth().signOut().then(() => {
-            this.user = null;
-            this.loginResult = 'Not logged in';
+            user = null;
+            login_result = 'Not logged in';
         }).catch(error => {
             console.error('Error during sign-out:', error);
             alert('Sign out failed. ' + error.message);
         });
     }
 
-    async function fetchData() {
+    async function fetch_data() {
         try {
+			console.log('fetch_data');
             const response = await fetch('https://cotton-concrete-catsup.glitch.me/pop_up_url/read', {
                 method: 'POST',
                 headers: {
@@ -105,61 +117,60 @@ https://www.facebook.com`;
                 body: JSON.stringify({ uid })
             });
             const data = await response.json();
-            if (Array.isArray(data.all_json)) {
-                web_data.set(data.all_json);
-            } else {
-                console.error("Fetched data is not an array:", data.all_json);
-                web_data.set([]);
-            }
+            web_data = data.all_json;
         } catch (error) {
             console.error("Error fetching data:", error);
         }
     }
 
-    async function createData() {
+    async function create_record() {
         try {
             const response = await fetch('https://cotton-concrete-catsup.glitch.me/pop_up_url/create', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    uid,
-                    url_name: list_name,
-                    url_list
-                })
+                body: JSON.stringify({ 
+					uid: uid,
+					url_name: url_name,
+					url_list: url_list,
+				})
             });
-            const result = await response.json();
-            console.log('Create result:', result);
-            fetchData(); // Refresh data after creating
+            const data = await response.json();
+            console.log('Record created:', data);
+            fetch_data(); // Refresh the data
         } catch (error) {
-            console.error('Error creating data:', error);
+            console.error('Error creating record:', error);
         }
     }
 
-    async function updateData(id) {
+    async function update_record(id) {
         try {
+			// confirmしてから実行。yes出ない場合は何もしない
+			if (confirm('更新しますか？')) {} else {
+				return;
+			}
             const response = await fetch('https://cotton-concrete-catsup.glitch.me/pop_up_url/update', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    id,
-                    uid,
-                    url_name: list_name,
-                    url_list
-                })
+					id: id,
+					uid: uid,
+					url_name: url_name,
+					url_list: url_list,
+				})
             });
-            const result = await response.json();
-            console.log('Update result:', result);
-            fetchData(); // Refresh data after updating
+            const data = await response.json();
+            console.log('Record updated:', data);
+            fetch_data(); // Refresh the data
         } catch (error) {
-            console.error('Error updating data:', error);
+            console.error('Error updating record:', error);
         }
     }
 
-    async function deleteData(id) {
+    async function delete_record(id) {
         try {
             const response = await fetch('https://cotton-concrete-catsup.glitch.me/pop_up_url/delete', {
                 method: 'POST',
@@ -168,23 +179,17 @@ https://www.facebook.com`;
                 },
                 body: JSON.stringify({ id, uid })
             });
-            const result = await response.json();
-            console.log('Delete result:', result);
-            fetchData(); // Refresh data after deleting
+            const data = await response.json();
+            console.log('Record deleted:', data);
+            fetch_data(); // Refresh the data
         } catch (error) {
-            console.error('Error deleting data:', error);
+            console.error('Error deleting record:', error);
         }
     }
 
     onMount(() => {
-        firebase.auth().onAuthStateChanged((currentUser) => {
-            user = currentUser;
-            if (user) {
-                uid = user.uid;
-                loginResult = `Logged in as: ${user.displayName}`;
-                fetchData();
-            }
-        });
+        check_login();
+		fetch_data();
     });
 </script>
 
@@ -218,20 +223,20 @@ https://www.facebook.com`;
     <div class="header">
         <h1>サービス名</h1>
         {#if user}
-            <button on:click={signOut}>Logout</button>
+            <button on:click={sign_out}>Logout</button>
         {:else}
-            <button on:click={googleLogin}>Login</button>
+            <button on:click={google_login}>Login</button>
         {/if}
     </div>
     <div class="content">
         <div class="left-column">
             <ul>
-                {#each $web_data as item}
+                {#each web_data as item}
                     <li>
                         {item.url_name}
                         <button on:click={() => url_list = item.url_list}>Load</button>
-                        <button on:click={() => updateData(item.id)}>Update</button>
-                        <button on:click={() => deleteData(item.id)}>Delete</button>
+                        <button on:click={() => update_record(item.id)}>Update</button>
+                        <button on:click={() => delete_record(item.id)}>Delete</button>
                     </li>
                 {/each}
             </ul>
@@ -243,15 +248,31 @@ https://www.facebook.com`;
                 </button>
             {/if}
 
-            {#if is_editing_list_name}
-                <input type="text" bind:value={list_name} />
-                <button on:click={updateListName}>Update</button>
+
+			<!-- error_message。クリックしたら消える -->
+			<p
+				on:click={() => error_message = ''}
+				on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') error_message = ''; }}
+				style="background: none; border: none; padding: 0; margin: 0; color: inherit; font: inherit; cursor: pointer;"
+			>{error_message}</p>
+			<!-- test_url_listを代入するボタン -->
+			<button on:click={() => url_list = test_url_list}>Test URL List</button>
+			<p>{login_result}</p>
+			<p>{url_name}</p>
+            {#if is_editing_url_name}
+                <input type="text" bind:value={url_name} />
+                <button on:click={update_url_name}>Update</button>
             {:else}
-                <button on:click={toggleEditListName}>Change List Name</button>
+                <button on:click={toggle_edit_url_name}>Change List Name</button>
             {/if}
 
             <label for="open_volume">Open Volume:</label>
             <input type="number" id="open_volume" bind:value={open_volume} min="1" max={options.length} />
             <textarea bind:value={url_list} placeholder="URLリストを入力してください"></textarea>
             <button on:click={exe}>実行</button>
-            <button on:click={
+            <button on:click={create_record}>Create Record</button>
+            <!-- uid表示 -->
+            <p>uid: {uid}</p>
+        </div>
+    </div>
+</div>
